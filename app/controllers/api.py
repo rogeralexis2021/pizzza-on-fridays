@@ -66,16 +66,23 @@ def volatility_chart():
 def resumen():
     """Obtiene el resumen de un activo y lo envía por correo con Resend.
 
-    Body JSON: {"ticker": "AAPL", "correo": "persona@ejemplo.com"}
+    Body JSON: {"ticker": "AAPL", "correo": "persona@ejemplo.com", "api_key": "re_..."}
+
+    ``api_key`` es la API Key de Resend de quien hace la petición: cada
+    persona trae la suya para no depender de (ni agotar) una única key
+    configurada en el servidor.
     """
     payload = request.get_json(silent=True) or {}
     ticker = (payload.get("ticker") or "").strip()
     correo = (payload.get("correo") or "").strip()
+    api_key = (payload.get("api_key") or "").strip()
 
     if not ticker:
         return jsonify({"ok": False, "error": "Indica el ticker de un activo."}), 400
     if not correo or not EMAIL_RE.match(correo):
         return jsonify({"ok": False, "error": "Indica un correo electrónico válido."}), 400
+    if not api_key:
+        return jsonify({"ok": False, "error": "Indica tu API Key de Resend."}), 400
 
     try:
         datos_resumen = resumen_service.obtener_resumen(ticker)
@@ -83,7 +90,7 @@ def resumen():
         return jsonify({"ok": False, "error": str(exc)}), 404
 
     try:
-        email_id = email_service.enviar_resumen(correo, datos_resumen)
+        email_id = email_service.enviar_resumen(correo, datos_resumen, api_key=api_key)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc), "resumen": datos_resumen}), 502
 

@@ -69,11 +69,16 @@ def construir_html_resumen(resumen: dict[str, Any]) -> str:
     """
 
 
-def enviar_resumen(destinatario: str, resumen: dict[str, Any]) -> str:
-    """Envía el resumen por correo con Resend y devuelve el id confirmado por su API."""
-    api_key = current_app.config.get("RESEND_API_KEY")
+def enviar_resumen(destinatario: str, resumen: dict[str, Any], api_key: str | None = None) -> str:
+    """Envía el resumen por correo con Resend y devuelve el id confirmado por su API.
+
+    ``api_key`` es la API Key de Resend de quien solicita el envío (cada persona
+    trae la suya, para no depender de una única key del servidor). Si no se
+    indica, se usa ``RESEND_API_KEY`` de la configuración como respaldo.
+    """
+    api_key = (api_key or "").strip() or current_app.config.get("RESEND_API_KEY")
     if not api_key:
-        raise RuntimeError("Falta configurar RESEND_API_KEY para poder enviar correos.")
+        raise RuntimeError("Falta indicar tu API Key de Resend para poder enviar el correo.")
 
     resend.api_key = api_key
     remitente = current_app.config.get("RESEND_FROM", "onboarding@resend.dev")

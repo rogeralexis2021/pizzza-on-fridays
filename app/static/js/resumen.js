@@ -10,6 +10,7 @@
 
   const tickerInput = document.getElementById("ticker-input");
   const correoInput = document.getElementById("correo-input");
+  const apiKeyInput = document.getElementById("api-key-input");
   const btn = document.getElementById("resumen-btn");
   const messageEl = document.getElementById("resumen-message");
   const messageIconEl = document.getElementById("resumen-message-icon");
@@ -86,6 +87,7 @@
 
     const ticker = tickerInput.value.trim().toUpperCase();
     const correo = correoInput.value.trim();
+    const apiKey = apiKeyInput.value.trim();
 
     btn.disabled = true;
     btn.textContent = "Enviando...";
@@ -94,7 +96,7 @@
     fetch("/api/resumen", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker, correo }),
+      body: JSON.stringify({ ticker, correo, api_key: apiKey }),
     })
       .then(async (res) => {
         const payload = await res.json().catch(() => ({}));

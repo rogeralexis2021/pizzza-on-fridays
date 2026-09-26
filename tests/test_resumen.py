@@ -137,6 +137,17 @@ def test_enviar_resumen_llama_a_resend_con_destinatario_asunto_y_html(app, monke
     assert "AAPL" in captured["html"]
 
 
+def test_enviar_resumen_usa_la_api_key_del_usuario_en_vez_de_la_del_servidor(app, monkeypatch):
+    captured = {}
+    monkeypatch.setattr(resend.Emails, "send", lambda payload: captured.update({"api_key_usada": resend.api_key}) or {"id": "email-456"})
+    app.config["RESEND_API_KEY"] = "key-del-servidor"
+
+    with app.app_context():
+        email_service.enviar_resumen("destino@correo.com", _fake_resumen(), api_key="key-del-usuario")
+
+    assert captured["api_key_usada"] == "key-del-usuario"
+
+
 def test_enviar_resumen_sin_api_key_lanza_error(app):
     app.config["RESEND_API_KEY"] = ""
 
@@ -165,16 +176,27 @@ def test_resumen_page_is_reachable(client):
     assert b'id="resumen-form"' in response.data
     assert b'id="ticker-input"' in response.data
     assert b'id="correo-input"' in response.data
+    assert b'id="api-key-input"' in response.data
 
 
 def test_api_resumen_ticker_vacio_es_400(client):
-    response = client.post("/api/resumen", json={"ticker": "", "correo": "destino@correo.com"})
+    response = client.post(
+        "/api/resumen", json={"ticker": "", "correo": "destino@correo.com", "api_key": "re_test_123"}
+    )
     assert response.status_code == 400
     assert response.get_json()["ok"] is False
 
 
 def test_api_resumen_correo_invalido_es_400(client):
-    response = client.post("/api/resumen", json={"ticker": "AAPL", "correo": "no-es-un-correo"})
+    response = client.post(
+        "/api/resumen", json={"ticker": "AAPL", "correo": "no-es-un-correo", "api_key": "re_test_123"}
+    )
+    assert response.status_code == 400
+    assert response.get_json()["ok"] is False
+
+
+def test_api_resumen_sin_api_key_es_400(client):
+    response = client.post("/api/resumen", json={"ticker": "AAPL", "correo": "destino@correo.com"})
     assert response.status_code == 400
     assert response.get_json()["ok"] is False
 
@@ -185,16 +207,27 @@ def test_api_resumen_ticker_inexistente_es_404(client, monkeypatch):
 
     monkeypatch.setattr("app.controllers.api.resumen_service.obtener_resumen", _fake_obtener_resumen)
 
-    response = client.post("/api/resumen", json={"ticker": "NOEXISTE", "correo": "destino@correo.com"})
+    response = client.post(
+        "/api/resumen", json={"ticker": "NOEXISTE", "correo": "destino@correo.com", "api_key": "re_test_123"}
+    )
     assert response.status_code == 404
     assert response.get_json()["ok"] is False
 
 
 def test_api_resumen_envio_exitoso_devuelve_200_y_mensaje_exacto(client, monkeypatch):
     monkeypatch.setattr("app.controllers.api.resumen_service.obtener_resumen", lambda ticker: _fake_resumen(ticker))
-    monkeypatch.setattr("app.controllers.api.email_service.enviar_resumen", lambda destinatario, resumen: "email-123")
 
-    response = client.post("/api/resumen", json={"ticker": "AAPL", "correo": "destino@correo.com"})
+    captured_api_key = {}
+
+    def _fake_enviar_resumen(destinatario, resumen, api_key=None):
+        captured_api_key["value"] = api_key
+        return "email-123"
+
+    monkeypatch.setattr("app.controllers.api.email_service.enviar_resumen", _fake_enviar_resumen)
+
+    response = client.post(
+        "/api/resumen", json={"ticker": "AAPL", "correo": "destino@correo.com", "api_key": "re_test_123"}
+    )
 
     assert response.status_code == 200
     payload = response.get_json()
@@ -202,17 +235,20 @@ def test_api_resumen_envio_exitoso_devuelve_200_y_mensaje_exacto(client, monkeyp
     assert payload["mensaje"] == "¡Gracias! Tu resumen ya ha sido enviado a destino@correo.com"
     assert payload["email_id"] == "email-123"
     assert payload["resumen"]["ticker"] == "AAPL"
+    assert captured_api_key["value"] == "re_test_123"
 
 
 def test_api_resumen_fallo_de_resend_es_502_sin_mensaje_de_gracias(client, monkeypatch):
     monkeypatch.setattr("app.controllers.api.resumen_service.obtener_resumen", lambda ticker: _fake_resumen(ticker))
 
-    def _fake_enviar_resumen(destinatario, resumen):
+    def _fake_enviar_resumen(destinatario, resumen, api_key=None):
         raise RuntimeError("Resend no confirmó el envío del correo.")
 
     monkeypatch.setattr("app.controllers.api.email_service.enviar_resumen", _fake_enviar_resumen)
 
-    response = client.post("/api/resumen", json={"ticker": "AAPL", "correo": "destino@correo.com"})
+    response = client.post(
+        "/api/resumen", json={"ticker": "AAPL", "correo": "destino@correo.com", "api_key": "re_test_123"}
+    )
 
     assert response.status_code == 502
     payload = response.get_json()

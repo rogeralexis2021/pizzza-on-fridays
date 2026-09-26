@@ -18,8 +18,9 @@
   <main class="resumen-page">
     <h1>Resumen de un activo por correo</h1>
     <p class="resumen-page__hint">
-      Escribe el ticker de un activo de Yahoo Finance y el correo de la persona que debe
-      recibirlo. Verás el resumen en pantalla y se lo enviaremos por email.
+      Escribe el ticker de un activo de Yahoo Finance, el correo de la persona que debe
+      recibirlo y tu propia API Key de Resend para enviarlo. Verás el resumen en pantalla
+      y se lo enviaremos por email.
     </p>
 
     <div class="resumen-grid">
@@ -49,6 +50,24 @@
             autocomplete="off"
             required
           >
+        </div>
+
+        <div class="resumen-field">
+          <label for="api-key-input">Tu API Key de Resend</label>
+          <input
+            type="password"
+            id="api-key-input"
+            name="api_key"
+            class="resumen-form__input"
+            placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+            autocomplete="off"
+            required
+          >
+          <span class="resumen-field__help">
+            Créala gratis en <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer">resend.com/api-keys</a>.
+            Se usa solo para este envío, no se guarda. Con el remitente de pruebas
+            (onboarding@resend.dev) solo podrás enviarte a ti mismo, al correo dueño de esa cuenta de Resend.
+          </span>
         </div>
 
         <button type="submit" class="resumen-form__btn" id="resumen-btn">Obtener resumen</button>
