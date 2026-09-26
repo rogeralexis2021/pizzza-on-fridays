@@ -1,16 +1,21 @@
 """Controlador: API JSON (y de imágenes) que consume el JavaScript del panel."""
 from __future__ import annotations
 
+import re
+
 from flask import Blueprint, Response, jsonify, request
 
 from app.models import analysis, market_data
 from app.models.watchlists import get_watchlist
+from app.services import email_service, resumen_service
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 ALLOWED_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"}
 ALLOWED_RANGES = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "max"}
 MAX_VOLATILITY_TICKERS = 6
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @bp.get("/quote/<ticker>")
@@ -55,3 +60,38 @@ def volatility_chart():
 
     png_bytes = analysis.render_volatility_histograms(tickers, period)
     return Response(png_bytes, mimetype="image/png")
+
+
+@bp.post("/resumen")
+def resumen():
+    """Obtiene el resumen de un activo y lo envía por correo con Resend.
+
+    Body JSON: {"ticker": "AAPL", "correo": "persona@ejemplo.com"}
+    """
+    payload = request.get_json(silent=True) or {}
+    ticker = (payload.get("ticker") or "").strip()
+    correo = (payload.get("correo") or "").strip()
+
+    if not ticker:
+        return jsonify({"ok": False, "error": "Indica el ticker de un activo."}), 400
+    if not correo or not EMAIL_RE.match(correo):
+        return jsonify({"ok": False, "error": "Indica un correo electrónico válido."}), 400
+
+    try:
+        datos_resumen = resumen_service.obtener_resumen(ticker)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+
+    try:
+        email_id = email_service.enviar_resumen(correo, datos_resumen)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc), "resumen": datos_resumen}), 502
+
+    return jsonify(
+        {
+            "ok": True,
+            "mensaje": f"¡Gracias! Tu resumen ya ha sido enviado a {correo}",
+            "resumen": datos_resumen,
+            "email_id": email_id,
+        }
+    )
