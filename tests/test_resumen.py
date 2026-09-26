@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import resend
 
-from app.models import market_data
+from app.models import analysis, market_data
 from app.services import email_service, resumen_service
 
 
@@ -117,6 +117,7 @@ def test_obtener_resumen_usa_valores_por_defecto_si_falla_nombre_o_moneda(monkey
 
 
 def test_enviar_resumen_llama_a_resend_con_destinatario_asunto_y_html(app, monkeypatch):
+    monkeypatch.setattr(analysis.market_data, "get_candles", lambda *a, **k: _fake_candles())
     captured = {}
 
     def fake_send(payload):
@@ -135,9 +136,11 @@ def test_enviar_resumen_llama_a_resend_con_destinatario_asunto_y_html(app, monke
     assert captured["from"] == "Market Dashboard <onboarding@resend.dev>"
     assert captured["subject"] == "Resumen de AAPL: 232.14 USD"
     assert "AAPL" in captured["html"]
+    assert "data:image/png;base64," in captured["html"]
 
 
 def test_enviar_resumen_usa_la_api_key_del_usuario_en_vez_de_la_del_servidor(app, monkeypatch):
+    monkeypatch.setattr(analysis.market_data, "get_candles", lambda *a, **k: _fake_candles())
     captured = {}
     monkeypatch.setattr(resend.Emails, "send", lambda payload: captured.update({"api_key_usada": resend.api_key}) or {"id": "email-456"})
     app.config["RESEND_API_KEY"] = "key-del-servidor"
@@ -157,12 +160,29 @@ def test_enviar_resumen_sin_api_key_lanza_error(app):
 
 
 def test_enviar_resumen_sin_id_en_la_respuesta_lanza_error(app, monkeypatch):
+    monkeypatch.setattr(analysis.market_data, "get_candles", lambda *a, **k: _fake_candles())
     monkeypatch.setattr(resend.Emails, "send", lambda payload: {})
     app.config["RESEND_API_KEY"] = "test-key"
 
     with app.app_context():
         with pytest.raises(RuntimeError):
             email_service.enviar_resumen("destino@correo.com", _fake_resumen())
+
+
+def test_construir_html_resumen_incrusta_el_grafico_como_imagen(monkeypatch):
+    monkeypatch.setattr(analysis.market_data, "get_candles", lambda *a, **k: _fake_candles())
+    html = email_service.construir_html_resumen(_fake_resumen())
+    assert "data:image/png;base64," in html
+
+
+def test_construir_html_resumen_sin_grafico_si_falla_su_generacion(monkeypatch):
+    def _boom(*a, **k):
+        raise RuntimeError("yfinance no disponible")
+
+    monkeypatch.setattr(analysis.market_data, "get_candles", _boom)
+    html = email_service.construir_html_resumen(_fake_resumen())
+    assert "data:image/png;base64," not in html
+    assert "AAPL" in html
 
 
 # ---------------------------------------------------------------------

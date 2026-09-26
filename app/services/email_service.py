@@ -1,10 +1,13 @@
 """Servicio: envío del resumen de un activo por correo, usando Resend."""
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 import resend
 from flask import current_app
+
+from app.models import analysis
 
 _UP_COLOR = "#26a69a"
 _DOWN_COLOR = "#ef5350"
@@ -17,12 +20,39 @@ def _fmt(value: Any) -> str:
         return str(value)
 
 
+def _price_chart_data_uri(ticker: str) -> str | None:
+    """PNG del gráfico de precio, como ``data:`` URI para incrustar en el correo.
+
+    Si algo falla al generarlo (sin datos, error de yfinance/matplotlib), se
+    devuelve ``None`` y el correo se envía igual, solo que sin el gráfico.
+    """
+    if not ticker:
+        return None
+    try:
+        png_bytes = analysis.render_price_chart(ticker)
+    except Exception:
+        return None
+    return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+
+
 def construir_html_resumen(resumen: dict[str, Any]) -> str:
     """HTML del correo, con estilos inline (compatible con clientes de correo)."""
     is_up = (resumen.get("cambio_dia") or 0) >= 0
     color = _UP_COLOR if is_up else _DOWN_COLOR
     signo = "+" if is_up else ""
     moneda = resumen.get("moneda", "USD")
+
+    chart_data_uri = _price_chart_data_uri(resumen.get("ticker", ""))
+    chart_html = (
+        f"""
+        <div style="padding:0 24px 20px;">
+          <img src="{chart_data_uri}" alt="Evolución de precio de {resumen.get('ticker', '')}"
+               style="width:100%;max-width:432px;display:block;border-radius:8px;">
+        </div>
+        """
+        if chart_data_uri
+        else ""
+    )
 
     filas = [
         ("Fecha del último dato", resumen.get("fecha_ultimo_dato", "—")),
@@ -58,6 +88,7 @@ def construir_html_resumen(resumen: dict[str, Any]) -> str:
             {signo}{_fmt(resumen.get('cambio_dia'))} ({signo}{_fmt(resumen.get('cambio_pct_dia'))}%) hoy
           </p>
         </div>
+        {chart_html}
         <table style="width:100%;border-collapse:collapse;">
           {filas_html}
         </table>
