@@ -90,8 +90,14 @@
         <dl class="resumen-card__table" id="card-table"></dl>
       </div>
     </div>
+
+    <section class="resumen-chart-section" id="resumen-chart-section" hidden>
+      <h2 id="resumen-chart-title">Evolución de precio (6 meses)</h2>
+      <div class="resumen-chart-container" id="resumen-chart-container"></div>
+    </section>
   </main>
 
+  <script src="{{ url_for('static', filename='js/vendor/lightweight-charts.standalone.production.js') }}"></script>
   <script src="{{ url_for('static', filename='js/resumen.js') }}"></script>
 </body>
 </html>

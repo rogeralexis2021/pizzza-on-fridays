@@ -177,6 +177,7 @@ def test_resumen_page_is_reachable(client):
     assert b'id="ticker-input"' in response.data
     assert b'id="correo-input"' in response.data
     assert b'id="api-key-input"' in response.data
+    assert b'id="resumen-chart-container"' in response.data
 
 
 def test_api_resumen_ticker_vacio_es_400(client):

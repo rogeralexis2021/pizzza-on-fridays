@@ -21,6 +21,54 @@
   const cardPrice = document.getElementById("card-price");
   const cardChange = document.getElementById("card-change");
   const cardTable = document.getElementById("card-table");
+  const chartSection = document.getElementById("resumen-chart-section");
+  const chartTitle = document.getElementById("resumen-chart-title");
+  const chartContainer = document.getElementById("resumen-chart-container");
+
+  let chart = null;
+  let candleSeries = null;
+
+  function ensureChart() {
+    if (chart) return;
+    chart = LightweightCharts.createChart(chartContainer, {
+      layout: { background: { color: "#131a24" }, textColor: "#7c8a9e" },
+      grid: { vertLines: { color: "#1b2431" }, horzLines: { color: "#1b2431" } },
+      rightPriceScale: { borderColor: "#232c3a" },
+      timeScale: { borderColor: "#232c3a", timeVisible: true, secondsVisible: false },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    });
+    candleSeries = chart.addCandlestickSeries({
+      upColor: "#26a69a",
+      downColor: "#ef5350",
+      borderVisible: false,
+      wickUpColor: "#26a69a",
+      wickDownColor: "#ef5350",
+    });
+    new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      chart.applyOptions({ width, height });
+    }).observe(chartContainer);
+  }
+
+  function loadChart(ticker) {
+    ensureChart();
+    chartTitle.textContent = `Evolución de precio · ${ticker} (6 meses)`;
+
+    fetch(`/api/candles/${encodeURIComponent(ticker)}?range=6mo&interval=1d`)
+      .then((res) => res.json())
+      .then((candles) => {
+        if (!Array.isArray(candles) || candles.length === 0) {
+          chartSection.hidden = true;
+          return;
+        }
+        candleSeries.setData(candles);
+        chartSection.hidden = false;
+        chart.timeScale().fitContent();
+      })
+      .catch(() => {
+        chartSection.hidden = true;
+      });
+  }
 
   function fmt(value) {
     return Number(value).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -103,7 +151,10 @@
         return payload;
       })
       .then((payload) => {
-        if (payload.resumen) renderCard(payload.resumen);
+        if (payload.resumen) {
+          renderCard(payload.resumen);
+          loadChart(payload.resumen.ticker);
+        }
         if (payload.ok) {
           setMessage(payload.mensaje, "success");
         } else {

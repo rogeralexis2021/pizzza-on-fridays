@@ -225,6 +225,24 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Gráfico de precio ---------- */
+
+.resumen-chart-section {
+  margin-top: 1.5rem;
+}
+
+.resumen-chart-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.resumen-chart-container {
+  height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
