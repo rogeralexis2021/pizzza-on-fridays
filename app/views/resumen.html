@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resumen por correo · Market Dashboard</title>
+  <meta name="description" content="Obtén el resumen de un activo y recíbelo por correo electrónico.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/resumen.css') }}">
+</head>
+<body class="resumen-body">
+
+  <header class="resumen-nav">
+    <a class="resumen-nav__back" href="{{ url_for('graficas.index') }}">&larr; Volver al dashboard</a>
+  </header>
+
+  <main class="resumen-page">
+    <h1>Resumen de un activo por correo</h1>
+    <p class="resumen-page__hint">
+      Escribe el ticker de un activo de Yahoo Finance y el correo de la persona que debe
+      recibirlo. Verás el resumen en pantalla y se lo enviaremos por email.
+    </p>
+
+    <div class="resumen-grid">
+      <form class="resumen-form" id="resumen-form" novalidate>
+        <div class="resumen-field">
+          <label for="ticker-input">Ticker del activo</label>
+          <input
+            type="text"
+            id="ticker-input"
+            name="ticker"
+            class="resumen-form__input resumen-form__input--upper"
+            placeholder="AAPL"
+            autocomplete="off"
+            required
+          >
+          <span class="resumen-field__help">Ej: AAPL, BTC-USD, ^GSPC</span>
+        </div>
+
+        <div class="resumen-field">
+          <label for="correo-input">Correo del destinatario</label>
+          <input
+            type="email"
+            id="correo-input"
+            name="correo"
+            class="resumen-form__input"
+            placeholder="nombre@correo.com"
+            autocomplete="off"
+            required
+          >
+        </div>
+
+        <button type="submit" class="resumen-form__btn" id="resumen-btn">Obtener resumen</button>
+
+        <p class="resumen-message" id="resumen-message" role="status" aria-live="polite" hidden>
+          <span class="resumen-message__icon" id="resumen-message-icon" aria-hidden="true"></span>
+          <span id="resumen-message-text"></span>
+        </p>
+      </form>
+
+      <div class="resumen-card" id="resumen-card" hidden>
+        <div class="resumen-card__header">
+          <span class="resumen-card__name" id="card-name"></span>
+          <span class="resumen-card__ticker" id="card-ticker"></span>
+        </div>
+        <div class="resumen-card__price">
+          <span class="resumen-card__price-value" id="card-price"></span>
+          <span class="resumen-card__price-change" id="card-change"></span>
+        </div>
+        <dl class="resumen-card__table" id="card-table"></dl>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/resumen.js') }}"></script>
+</body>
+</html>

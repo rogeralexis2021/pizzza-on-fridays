@@ -23,6 +23,21 @@
   font-size: 1.3rem;
 }
 
+.landing-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.landing-nav__link {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.landing-nav__link:hover {
+  color: var(--text);
+}
+
 .landing-nav__cta {
   background: var(--accent);
   color: #fff;

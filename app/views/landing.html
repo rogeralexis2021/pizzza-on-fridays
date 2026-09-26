@@ -16,7 +16,10 @@
       <span class="landing-nav__logo">📈</span>
       <span>Market Dashboard</span>
     </div>
-    <a class="landing-nav__cta" href="{{ url_for('graficas.index') }}">Entrar al panel</a>
+    <div class="landing-nav__links">
+      <a class="landing-nav__link" href="{{ url_for('resumen.index') }}">Resumen por correo</a>
+      <a class="landing-nav__cta" href="{{ url_for('graficas.index') }}">Entrar al panel</a>
+    </div>
   </header>
 
   <main>
