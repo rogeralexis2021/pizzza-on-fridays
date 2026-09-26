@@ -136,7 +136,11 @@ def test_enviar_resumen_llama_a_resend_con_destinatario_asunto_y_html(app, monke
     assert captured["from"] == "Market Dashboard <onboarding@resend.dev>"
     assert captured["subject"] == "Resumen de AAPL: 232.14 USD"
     assert "AAPL" in captured["html"]
-    assert "data:image/png;base64," in captured["html"]
+    assert "cid:resumen-chart" in captured["html"]
+    assert len(captured["attachments"]) == 1
+    assert captured["attachments"][0]["content_id"] == "resumen-chart"
+    assert captured["attachments"][0]["content_type"] == "image/png"
+    assert len(captured["attachments"][0]["content"]) > 0
 
 
 def test_enviar_resumen_usa_la_api_key_del_usuario_en_vez_de_la_del_servidor(app, monkeypatch):
@@ -169,20 +173,33 @@ def test_enviar_resumen_sin_id_en_la_respuesta_lanza_error(app, monkeypatch):
             email_service.enviar_resumen("destino@correo.com", _fake_resumen())
 
 
-def test_construir_html_resumen_incrusta_el_grafico_como_imagen(monkeypatch):
-    monkeypatch.setattr(analysis.market_data, "get_candles", lambda *a, **k: _fake_candles())
-    html = email_service.construir_html_resumen(_fake_resumen())
-    assert "data:image/png;base64," in html
+def test_construir_html_resumen_incluye_referencia_cid_al_grafico():
+    html = email_service.construir_html_resumen(_fake_resumen(), incluir_grafico=True)
+    assert "cid:resumen-chart" in html
+    assert "AAPL" in html
 
 
-def test_construir_html_resumen_sin_grafico_si_falla_su_generacion(monkeypatch):
+def test_construir_html_resumen_sin_grafico_si_incluir_grafico_es_false():
+    html = email_service.construir_html_resumen(_fake_resumen(), incluir_grafico=False)
+    assert "cid:resumen-chart" not in html
+    assert "AAPL" in html
+
+
+def test_enviar_resumen_sin_adjuntar_grafico_si_falla_su_generacion(app, monkeypatch):
     def _boom(*a, **k):
         raise RuntimeError("yfinance no disponible")
 
     monkeypatch.setattr(analysis.market_data, "get_candles", _boom)
-    html = email_service.construir_html_resumen(_fake_resumen())
-    assert "data:image/png;base64," not in html
-    assert "AAPL" in html
+
+    captured = {}
+    monkeypatch.setattr(resend.Emails, "send", lambda payload: captured.update(payload) or {"id": "email-789"})
+    app.config["RESEND_API_KEY"] = "test-key"
+
+    with app.app_context():
+        email_service.enviar_resumen("destino@correo.com", _fake_resumen())
+
+    assert "attachments" not in captured
+    assert "cid:resumen-chart" not in captured["html"]
 
 
 # ---------------------------------------------------------------------

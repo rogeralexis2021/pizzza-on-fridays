@@ -1,7 +1,6 @@
 """Servicio: envío del resumen de un activo por correo, usando Resend."""
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import resend
@@ -12,6 +11,12 @@ from app.models import analysis
 _UP_COLOR = "#26a69a"
 _DOWN_COLOR = "#ef5350"
 
+# Content-ID del gráfico adjunto, referenciado en el HTML como "cid:...".
+# Muchos clientes de correo (Gmail incluido) bloquean imágenes `data:` en
+# base64 incrustadas directo en el HTML; un adjunto inline con Content-ID
+# es la forma que sí funciona de forma consistente.
+_CHART_CONTENT_ID = "resumen-chart"
+
 
 def _fmt(value: Any) -> str:
     try:
@@ -20,8 +25,8 @@ def _fmt(value: Any) -> str:
         return str(value)
 
 
-def _price_chart_data_uri(ticker: str) -> str | None:
-    """PNG del gráfico de precio, como ``data:`` URI para incrustar en el correo.
+def _render_chart_bytes(ticker: str) -> bytes | None:
+    """PNG del gráfico de precio para adjuntar al correo.
 
     Si algo falla al generarlo (sin datos, error de yfinance/matplotlib), se
     devuelve ``None`` y el correo se envía igual, solo que sin el gráfico.
@@ -29,28 +34,31 @@ def _price_chart_data_uri(ticker: str) -> str | None:
     if not ticker:
         return None
     try:
-        png_bytes = analysis.render_price_chart(ticker)
+        return analysis.render_price_chart(ticker)
     except Exception:
         return None
-    return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
 
 
-def construir_html_resumen(resumen: dict[str, Any]) -> str:
-    """HTML del correo, con estilos inline (compatible con clientes de correo)."""
+def construir_html_resumen(resumen: dict[str, Any], incluir_grafico: bool = True) -> str:
+    """HTML del correo, con estilos inline (compatible con clientes de correo).
+
+    ``incluir_grafico`` controla si se incluye la referencia ``cid:`` a la
+    imagen del gráfico; la imagen en sí se adjunta por separado en
+    ``enviar_resumen`` (ver ``_CHART_CONTENT_ID``).
+    """
     is_up = (resumen.get("cambio_dia") or 0) >= 0
     color = _UP_COLOR if is_up else _DOWN_COLOR
     signo = "+" if is_up else ""
     moneda = resumen.get("moneda", "USD")
 
-    chart_data_uri = _price_chart_data_uri(resumen.get("ticker", ""))
     chart_html = (
         f"""
         <div style="padding:0 24px 20px;">
-          <img src="{chart_data_uri}" alt="Evolución de precio de {resumen.get('ticker', '')}"
+          <img src="cid:{_CHART_CONTENT_ID}" alt="Evolución de precio de {resumen.get('ticker', '')}"
                style="width:100%;max-width:432px;display:block;border-radius:8px;">
         </div>
         """
-        if chart_data_uri
+        if incluir_grafico
         else ""
     )
 
@@ -115,14 +123,24 @@ def enviar_resumen(destinatario: str, resumen: dict[str, Any], api_key: str | No
     remitente = current_app.config.get("RESEND_FROM", "onboarding@resend.dev")
     asunto = f"Resumen de {resumen['ticker']}: {_fmt(resumen.get('precio_actual'))} {resumen.get('moneda', 'USD')}"
 
-    respuesta = resend.Emails.send(
-        {
-            "from": f"Market Dashboard <{remitente}>",
-            "to": [destinatario],
-            "subject": asunto,
-            "html": construir_html_resumen(resumen),
-        }
-    )
+    chart_bytes = _render_chart_bytes(resumen.get("ticker", ""))
+    payload: dict[str, Any] = {
+        "from": f"Market Dashboard <{remitente}>",
+        "to": [destinatario],
+        "subject": asunto,
+        "html": construir_html_resumen(resumen, incluir_grafico=chart_bytes is not None),
+    }
+    if chart_bytes is not None:
+        payload["attachments"] = [
+            {
+                "filename": f"{resumen.get('ticker', 'grafico')}.png",
+                "content": list(chart_bytes),
+                "content_type": "image/png",
+                "content_id": _CHART_CONTENT_ID,
+            }
+        ]
+
+    respuesta = resend.Emails.send(payload)
 
     email_id = respuesta.get("id") if isinstance(respuesta, dict) else getattr(respuesta, "id", None)
     if not email_id:
