@@ -19,6 +19,10 @@ class Config:
     QUOTE_CACHE_TTL = int(os.environ.get("QUOTE_CACHE_TTL", "15"))
     CANDLE_CACHE_TTL = int(os.environ.get("CANDLE_CACHE_TTL", "60"))
 
+    # Envío del resumen por correo (ver app/services/email_service.py).
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+    RESEND_FROM = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
+
 
 class ProductionConfig(Config):
     DEBUG = False

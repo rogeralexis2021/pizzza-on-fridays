@@ -44,4 +44,11 @@
     </div>
     {% endfor %}
   </nav>
+
+  <div class="sidebar__footer">
+    <a class="sidebar__footer-link" href="{{ url_for('resumen.index') }}">
+      <span class="sidebar__icon">✉️</span>
+      <span class="sidebar__footer-link-text">Resumen por correo</span>
+    </a>
+  </div>
 </aside>

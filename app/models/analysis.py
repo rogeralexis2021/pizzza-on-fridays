@@ -95,3 +95,35 @@ def render_volatility_histograms(tickers: list[str], period: str = "5y") -> byte
     plt.close(fig)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def render_price_chart(ticker: str, period: str = "6mo") -> bytes:
+    """Gráfico de línea con el precio de cierre de ``ticker`` en ``period``.
+
+    Se usa para incrustar la evolución del precio en el correo del resumen
+    (``app/services/email_service.py``): los clientes de correo no ejecutan
+    JavaScript, así que ahí no sirve el gráfico interactivo de
+    lightweight-charts que se ve en `/resumen`; se manda como imagen.
+    """
+    candles = market_data.get_candles(ticker, range_=period, interval="1d")
+
+    fig, ax = plt.subplots(figsize=(7, 3))
+    if not candles:
+        ax.set_title(f"{ticker}: sin datos suficientes")
+        ax.axis("off")
+    else:
+        df = pd.DataFrame(candles)
+        df["date"] = pd.to_datetime(df["time"], unit="s")
+        color = "#26a69a" if df["close"].iloc[-1] >= df["close"].iloc[0] else "#ef5350"
+        sns.lineplot(data=df, x="date", y="close", ax=ax, color=color, linewidth=1.75)
+        ax.set_title(f"{ticker} · evolución de precio ({period})")
+        ax.set_xlabel("")
+        ax.set_ylabel("Precio")
+        fig.autofmt_xdate()
+
+    fig.tight_layout()
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png", dpi=120)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer.getvalue()
